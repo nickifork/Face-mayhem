@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="theme-color" content="#0a0920">
+  <meta name="description" content="FACE MAYHEM: משחק מצלמה עם זיהוי פנים, אכילת כדורים, ירי במצמוץ וכוח עשן וירטואלי.">
+  <title>FACE MAYHEM | הפנים שלך הן הנשק</title>
+  <style>
+    :root { color-scheme:dark; --mint:#83ffe0; --pink:#fc73c8; --gold:#ffce78; --fg:#f4f1ff; --muted:#a2a1c2; --panel:#10102edc; }
+    * {box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+    html,body { margin:0; width:100%;height:100%;overflow:hidden;background:#080817;color:var(--fg);font:500 15px system-ui,-apple-system,"Segoe UI",Arial,sans-serif;overscroll-behavior:none }
+    button {font:inherit;cursor:pointer;touch-action:manipulation;color:inherit}
+    .app {position:relative;isolation:isolate;height:100dvh;min-height:350px;width:100vw;overflow:hidden;background:radial-gradient(circle at 55% 40%,#2a175c 0%,#14112d 42%,#080916 100%)}
+    video { position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1);opacity:0;transition:opacity .35s;z-index:-1 }
+    video.active{opacity:1}
+    .scene-tint {position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(180deg,#090a29b8 0%,transparent 25%,transparent 66%,#090a22d6 100%),radial-gradient(ellipse at center,transparent 25%,#08081a88 100%)}
+    .grid-lines {position:absolute;inset:0;z-index:0;pointer-events:none;opacity:.25;background:linear-gradient(#b1b4ff0d 1px,transparent 1px),linear-gradient(90deg,#b1b4ff0d 1px,transparent 1px);background-size:34px 34px}
+    canvas {position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}
+    .hud {position:absolute;z-index:3;top:calc(env(safe-area-inset-top,0px) + 13px);right:14px;left:14px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px;pointer-events:none}
+    .logo {display:flex;flex-direction:column;line-height:1.04;text-shadow:0 2px 20px #090824}
+    .logo b{font-size:clamp(18px,5.4vw,25px);font-weight:950;letter-spacing:1px;direction:ltr;white-space:nowrap}.logo b span {color:var(--mint)}
+    .logo small {font-size:10px;color:#e0d7ff;letter-spacing:.7px;margin-top:5px}
+    .scores {display:flex;gap:6px;align-items:center;justify-content:flex-start;flex-wrap:wrap;direction:ltr}
+    .pill {border:1px solid #aaa9f346;background:#12102abd;backdrop-filter:blur(12px);border-radius:12px;min-width:53px;text-align:center;padding:7px 9px;box-shadow:0 6px 20px #0003}
+    .pill small {display:block;font-size:9px;color:#b9b6d9;font-weight:750;letter-spacing:1px}
+    .pill strong{display:block;margin-top:1px;font-size:17px;font-weight:900;font-variant-numeric:tabular-nums}
+    .pill .hearts {color:#ff689e;font-size:13px;letter-spacing:1px;white-space:nowrap}
+    .status {z-index:3;position:absolute;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top,0px) + 87px);padding:7px 12px;border:1px solid #ffffff28;background:#10112c9c;backdrop-filter:blur(14px);border-radius:99px;color:#d3cff2;display:flex;gap:7px;align-items:center;justify-content:center;font-size:11px;font-weight:700;max-width:min(94vw,400px);white-space:nowrap;pointer-events:none}
+    .status i{display:block;width:7px;height:7px;background:#faab75;border-radius:100%;box-shadow:0 0 10px #ffc06f}
+    .status.connected i{background:var(--mint);box-shadow:0 0 10px var(--mint)}
+    .face-meter {position:absolute;top:calc(env(safe-area-inset-top,0px) + 131px);right:14px;width:min(126px,30vw);display:none;z-index:3;pointer-events:none;opacity:.9}
+    .face-meter.visible{display:block}
+    .meter-row {display:grid;grid-template-columns:38px 1fr;direction:rtl;gap:6px;align-items:center;margin-bottom:8px;font-size:10px;font-weight:750;color:#e5ddff;text-shadow:0 2px 4px black}
+    .bar {height:5px;background:#39304e9e;border-radius:9px;overflow:hidden}.bar>div{height:100%;width:0%;border-radius:9px;background:var(--mint);transition:width .10s}.meter-row:nth-child(2) .bar>div{background:var(--pink)}.meter-row:nth-child(3) .bar>div{background:var(--gold)}
+    .control-wrap {position:absolute;z-index:3;bottom:calc(env(safe-area-inset-bottom,0px) + 13px);left:10px;right:10px;max-width:540px;margin:auto;pointer-events:auto}
+    .controller-title{font-size:10px;color:#dcd5ff;letter-spacing:.6px;text-align:center;margin-bottom:8px;text-shadow:0 1px 5px #000}
+    .controls {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;direction:rtl}
+    .action {border:1px solid #a7a4e84d;background:linear-gradient(180deg,#34305de8,#191934ed);border-radius:18px;display:flex;flex-direction:column;justify-content:center;align-items:center;min-height:70px;padding:8px 5px;box-shadow:0 8px 25px #0006,inset 0 1px #ffffff30;user-select:none;-webkit-user-select:none;touch-action:none;transition:transform .10s,border-color .10s}
+    .action strong {font-size:22px;line-height:1.1;filter:drop-shadow(0 1px 8px #ffec)}
+    .action span{font-size:12px;font-weight:850;margin-top:5px}
+    .action:active,.action.pressed{transform:scale(.95);border-color:var(--mint);box-shadow:0 0 20px #7effdd32}
+    .action.laser:active,.action.laser.pressed{border-color:var(--pink)}
+    .action.smoke:active,.action.smoke.pressed{border-color:var(--gold)}
+    .tiny-tool{position:absolute;left:13px;top:calc(env(safe-area-inset-top,0px) + 130px);z-index:5;display:flex;flex-direction:column;gap:8px}
+    .tool-btn {background:#15112da8;backdrop-filter:blur(12px);border:1px solid #ffffff30;border-radius:11px;min-width:38px;height:38px;font-size:19px}
+    .toast {position:absolute;z-index:7;top:33%;left:50%;transform:translateX(-50%) translateY(12px);padding:9px 17px;background:#21153ec9;border:1px solid #fff5;border-radius:22px;font-size:19px;font-weight:900;text-shadow:0 1px #0009;white-space:nowrap;opacity:0;transition:opacity .22s,transform .22s;pointer-events:none}
+    .toast.show {opacity:1;transform:translateX(-50%) translateY(0)}
+    .veil {position:absolute;z-index:10;inset:0;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at center,#272059ef,#080815f5 70%);padding:20px 18px calc(env(safe-area-inset-bottom,0px) + 20px);overflow-y:auto}
+    .veil[hidden]{display:none}
+    .hero {width:min(430px,100%);display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px}
+    .mascot {width:118px;height:118px;border-radius:35%;background:radial-gradient(circle at 25% 20%,#bd94ff,#7840b6 65%,#402065);position:relative;transform:rotate(-8deg);box-shadow:0 0 70px #a05dfb83,0 12px 0 #241343, inset 0 4px 20px #d9bbff55;margin:7px 0 13px;animation:bob 2.4s ease-in-out infinite}
+    @keyframes bob{50%{transform:translateY(-8px) rotate(6deg)}}
+    .mascot:before,.mascot:after{content:"";position:absolute;top:40px;width:17px;height:24px;background:#12112b;border-radius:100%;box-shadow:0 0 0 6px #e9e0ff50}.mascot:before{right:28px}.mascot:after{left:28px}
+    .mascot-mouth {position:absolute;bottom:19px;left:36px;width:47px;height:28px;border-radius:3px 3px 65px 65px;background:#170826;border:4px solid #f5b8ed;overflow:hidden}.mascot-mouth:after{content:"";position:absolute;bottom:-10px;left:11px;width:24px;height:17px;background:#ff6a9e;border-radius:50%}
+    .spark {position:absolute;font-size:27px;filter:drop-shadow(0 0 6px #7dfaf3);z-index:1}.spark.a{top:-14px;right:-17px}.spark.b{bottom:-15px;left:-29px}
+    .hero h1{font-size:clamp(31px,9vw,43px);letter-spacing:1.5px;font-weight:1000;line-height:.95;margin:0;direction:ltr;text-shadow:0 5px 35px #d479fa87}
+    .hero h1 span{color:var(--mint)}
+    .tagline {font-size:17px;font-weight:900;margin:0;color:#f0dfff}
+    .desc {font-size:13px;color:#c2bddf;line-height:1.7;max-width:360px;margin:0}
+    .feat {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:100%;margin:6px 0}
+    .feature{padding:10px 6px;border-radius:13px;border:1px solid #aea0f44a;background:#ffffff0d;display:flex;flex-direction:column;gap:5px;align-items:center}
+    .feature strong{font-size:24px}.feature span{font-size:11px;color:#e7defa;font-weight:850}
+    .primary {padding:15px 18px;border:none;border-radius:16px;color:#16142c;background:linear-gradient(100deg,#88fee2,#c4a3ff);font-size:16px;font-weight:1000;box-shadow:0 8px 25px #7dfedb35;width:100%;max-width:350px}
+    .primary:disabled{opacity:.65}
+    .secondary {background:#ffffff0e;color:#f7ebff;border:1px solid #fff4;border-radius:14px;padding:12px 16px;font-size:14px;font-weight:850;width:100%;max-width:350px}
+    .note {font-size:11px;color:#9e98bb;line-height:1.65;max-width:355px}
+    .error {font-size:12px;line-height:1.5;color:#ffd1d8;max-width:355px;min-height:15px}
+    .over-score {font-size:54px;color:var(--gold);font-weight:1000;line-height:1.1;text-shadow:0 2px 28px #ffc6647a}
+    .instructions{position:absolute;z-index:2;bottom:calc(env(safe-area-inset-bottom,0px) + 111px);width:100%;text-align:center;font-size:11px;font-weight:800;text-shadow:0 2px 5px #000;pointer-events:none;color:#ead8ff}
+    @media(max-height:690px){.hero{gap:8px}.mascot{width:70px;height:70px;margin:0 0 10px}.mascot:before,.mascot:after{top:24px;width:10px;height:15px}.mascot:before{right:18px}.mascot:after{left:18px}.mascot-mouth{left:22px;bottom:10px;width:28px;height:21px;border-width:2px}.hero h1{font-size:30px}.desc{font-size:12px}.feature{padding:6px}.status{top:86px}.face-meter,.tiny-tool{top:120px}.action{min-height:58px}.instructions{bottom:90px}}
+    @media(min-width:700px){.app{max-width:520px;margin:auto;box-shadow:0 0 0 30vw #070717}.hud{right:22px;left:22px}}
+    @media(prefers-reduced-motion:reduce){.mascot{animation:none}}
+  </style>
+</head>
+<body>
+<div class="app" id="app">
+  <video id="camera" autoplay muted playsinline aria-label="תצוגת מצלמה קדמית"></video>
+  <div class="grid-lines"></div><div class="scene-tint"></div>
+  <canvas id="gameCanvas" aria-label="משחק FACE MAYHEM"></canvas>
+  <header class="hud">
+    <div class="logo"><b>FACE <span>MAYHEM</span></b><small>הפנים שלך הן הנשק</small></div>
+    <div class="scores">
+      <div class="pill"><small>LEVEL</small><strong id="level">01</strong></div>
+      <div class="pill"><small>SCORE</small><strong id="score">0000</strong></div>
+      <div class="pill"><small>HP</small><strong class="hearts" id="hearts">♥♥♥</strong></div>
+    </div>
+  </header>
+  <div class="status" id="status"><i></i><span id="statusText">מוכן למשחק</span></div>
+  <div class="face-meter" id="faceMeter">
+    <div class="meter-row"><span>פה</span><div class="bar"><div id="mouthBar"></div></div></div>
+    <div class="meter-row"><span>עיניים</span><div class="bar"><div id="eyeBar"></div></div></div>
+    <div class="meter-row"><span>עשן</span><div class="bar"><div id="smokeBar"></div></div></div>
+  </div>
+  <div class="tiny-tool">
+    <button id="soundButton" class="tool-btn" type="button" aria-label="השתק צלילים" title="הפעל או השתק צלילים">🔊</button>
+    <button id="pauseButton" class="tool-btn" type="button" aria-label="השהה משחק" title="השהה משחק">⏸</button>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="instructions" id="hint">פתח פה לאכול • מצמץ לירות • כווץ שפתיים לעשן</div>
+  <div class="control-wrap" id="controller">
+    <div class="controller-title">כפתורי גיבוי — עובדים גם בלי מצלמה</div>
+    <div class="controls">
+      <button class="action mouth" id="mouthButton" type="button" aria-label="החזק כדי לפתוח פה"><strong>😮</strong><span>להחזיק: פה</span></button>
+      <button class="action laser" id="laserButton" type="button" aria-label="לירות בלייזר"><strong>⚡</strong><span>מצמוץ / ירי</span></button>
+      <button class="action smoke" id="smokeButton" type="button" aria-label="לשחרר ענן עשן"><strong>💨</strong><span>ענן עשן</span></button>
+    </div>
+  </div>
+  <section class="veil" id="intro" aria-label="מסך פתיחה">
+    <div class="hero">
+      <div class="mascot"><span class="spark a">⚡</span><span class="spark b">✦</span><div class="mascot-mouth"></div></div>
+      <h1>FACE <span>MAYHEM</span></h1>
+      <p class="tagline">הפנים שלך הן הנשק 😈</p>
+      <p class="desc">משחק ארקייד עם מצלמה קדמית. הזז את הפנים, פתח את הפה כדי לאכול כדורים, מצמץ כדי לחסל אויבים והפעל כוח עשן וירטואלי!</p>
+      <div class="feat"><div class="feature"><strong>😮</strong><span>לבלוע כדורים</span></div><div class="feature"><strong>👀</strong><span>לייזר במצמוץ</span></div><div class="feature"><strong>💨</strong><span>עשן קסום</span></div></div>
+      <button id="startCamera" class="primary" type="button">📷 התחלה עם מצלמה</button>
+      <button id="startDemo" class="secondary" type="button">🎮 לשחק בלי מצלמה</button>
+      <div id="error" class="error" aria-live="polite"></div>
+      <div class="note">למצלמה נדרשת הרשאה ואתר HTTPS (למשל GitHub Pages). זיהוי הפנים מתבצע במכשיר; לא שומרים או שולחים תמונות. בפעם הראשונה יש חיבור אינטרנט להורדת מנוע הזיהוי.</div>
+    </div>
+  </section>
+  <section class="veil" id="gameOver" hidden aria-label="סיום משחק">
+    <div class="hero">
+      <div class="mascot"><span class="spark a">💥</span><span class="spark b">✦</span><div class="mascot-mouth"></div></div>
+      <h1>GAME <span>OVER</span></h1><p class="tagline">הקרב נגמר, אבל לא המהומה</p>
+      <div class="over-score" id="finalScore">0</div><p class="desc" id="finalDetail"></p>
+      <button id="restartButton" class="primary" type="button">↻ משחק חדש</button>
+      <button id="backButton" class="secondary" type="button">חזרה לתפריט</button>
+    </div>
+  </section>
+</div>
+<script>
+(()=>{'use strict';
+  const $=id=>document.getElementById(id);
+  const canvas=$('gameCanvas'), ctx=canvas.getContext('2d',{alpha:true});
+  const video=$('camera'), intro=$('intro'), over=$('gameOver');
+  const startCamera=$('startCamera'), startDemo=$('startDemo'), err=$('error');
+  const status=$('status'), statusText=$('statusText');
+  const mouthButton=$('mouthButton'),laserButton=$('laserButton'),smokeButton=$('smokeButton');
+  const scoreEl=$('score'),levelEl=$('level'),heartsEl=$('hearts');
+  const meter=$('faceMeter'), bars=[$('mouthBar'),$('eyeBar'),$('smokeBar')];
+  let w=390,h=844, dpr=1, model=null, stream=null, cameraOn=false, tracking=false;
+  let mode='intro', isPaused=false, manualMouth=false, muted=false, audioCtx=null;
+  let score=0, hp=3, combo=0, level=1, objects=[],particles=[],beams=[],rings=[];
+  let face={x:195,y:440,eyes:[],jaw:0,blink:0,pucker:0,seen:false};
+  let lastTs=0,lastDetect=0,lastVideoTime=-1,lastBlink=0,lastSmoke=0,lastHit=0,spawnTimer=0,gameTime=0;
+  let mouthArmed=true,blinkArmed=true,smokeArmed=true,toastTimer=null,faceMissingTime=0;
+  const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+  const rand=(a,b)=>a+Math.random()*(b-a);
+  const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+  const now=()=>performance.now();
+
+  function resize(){
+    w=Math.max(240,canvas.clientWidth||innerWidth);h=Math.max(350,canvas.clientHeight||innerHeight);
+    dpr=Math.min(devicePixelRatio||1,2);canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    if(!face.seen){face.x=w/2;face.y=h*.49}
+  }
+  window.addEventListener('resize',resize);window.visualViewport?.addEventListener('resize',resize);resize();
+  function setStatus(message,ok=false){statusText.textContent=message;status.classList.toggle('connected',ok)}
+  function showToast(txt){const t=$('toast');t.textContent=txt;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),900)}
+  function vibrate(ms){if(navigator.vibrate)try{navigator.vibrate(ms)}catch(_){}}
+  function sound(freq=500,len=.09,type='sine',vol=.04){if(muted)return;try{
+    audioCtx=audioCtx||new(window.AudioContext||window.webkitAudioContext)();
+    if(audioCtx.state==='suspended')audioCtx.resume();
+    const osc=audioCtx.createOscillator(),gain=audioCtx.createGain(),t=audioCtx.currentTime;
+    osc.type=type;osc.frequency.setValueAtTime(freq,t);osc.frequency.exponentialRampToValueAtTime(Math.max(80,freq*.6),t+len);
+    gain.gain.setValueAtTime(vol,t);gain.gain.exponentialRampToValueAtTime(.001,t+len);
+    osc.connect(gain).connect(audioCtx.destination);osc.start(t);osc.stop(t+len);
+  }catch(_){}}
+  function updateHud(){scoreEl.textContent=String(score).padStart(4,'0');levelEl.textContent=String(level).padStart(2,'0');heartsEl.textContent='♥'.repeat(hp)+'♡'.repeat(Math.max(0,3-hp))}
+  function reset(){score=0;hp=3;combo=0;level=1;objects=[];particles=[];beams=[];rings=[];spawnTimer=.6;gameTime=0;manualMouth=false;lastBlink=0;lastSmoke=0;lastHit=0;mouthArmed=true;blinkArmed=true;smokeArmed=true;faceMissingTime=0;updateHud();mode='playing';isPaused=false;$('pauseButton').textContent='⏸';intro.hidden=true;over.hidden=true;setStatus(tracking?'מאתר פנים...':cameraOn?'מצלמה פעילה • כפתורי גיבוי':'מצב הדגמה • שליטת מגע',tracking||cameraOn);$('hint').textContent='כדורים לפה • אויבים בלייזר • עשן לפינוי מסך';}
+  function endGame(){if(mode!=='playing')return;mode='over';over.hidden=false;$('finalScore').textContent=score.toLocaleString('he-IL');$('finalDetail').textContent=`הגעת לשלב ${level} • סיימת עם ${score} נקודות`;sound(170,.5,'sawtooth',.06);vibrate([80,60,160]);}
+
+  async function cameraStart(){
+    startCamera.disabled=true;startCamera.textContent='📷 מבקש גישה למצלמה...';err.textContent='';
+    if(!window.isSecureContext){err.textContent='הדפדפן לא רואה כאן חיבור מאובטח. כדי להפעיל מצלמה צריך להעלות את הקובץ ל-GitHub Pages (HTTPS).';startCamera.disabled=false;startCamera.textContent='📷 נסה שוב עם מצלמה';return;}
+    try{
+      stream=await navigator.mediaDevices.getUserMedia({audio:false,video:{facingMode:'user',width:{ideal:640},height:{ideal:960},frameRate:{ideal:24,max:30}}});
+      video.srcObject=stream;await video.play();video.classList.add('active');cameraOn=true;
+      startCamera.textContent='🧠 טוען זיהוי פנים...';
+      const {FilesetResolver,FaceLandmarker}=await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/vision_bundle.mjs');
+      const vision=await FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21/wasm');
+      const opts={baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',delegate:'GPU'},runningMode:'VIDEO',numFaces:1,outputFaceBlendshapes:true,minFaceDetectionConfidence:.5,minTrackingConfidence:.5};
+      try{model=await FaceLandmarker.createFromOptions(vision,opts)}catch(e){console.warn('GPU fallback to CPU',e);opts.baseOptions.delegate='CPU';model=await FaceLandmarker.createFromOptions(vision,opts)}
+      tracking=true;meter.classList.add('visible');reset();setStatus('מצלמה פעילה • חפש את הפנים',true);
+    }catch(e){console.error('Camera/face tracking startup failed:',e);
+      if(cameraOn){err.textContent='המצלמה פועלת, אך מנוע זיהוי הפנים לא נטען. אפשר לשחק באמצעות הכפתורים.';}
+      else {err.textContent=(!navigator.mediaDevices?.getUserMedia)?'הדפדפן לא מאפשר מצלמה. פתח את המשחק דרך כתובת HTTPS ב-Chrome.':(e.name==='NotAllowedError'?'לא ניתנה הרשאה למצלמה. אפשר לאשר בהגדרות האתר או לשחק בלי מצלמה.':'לא הצלחתי להפעיל מצלמה. בדוק הרשאות וחיבור לאינטרנט, או בחר מצב ללא מצלמה.');}
+      startCamera.textContent='📷 ניסיון נוסף';startCamera.disabled=false;
+    }
+  }
+
+  function screenPos(p){
+    if(!video.videoWidth)return{x:w/2,y:h/2};
+    const scale=Math.max(w/video.videoWidth,h/video.videoHeight),ox=(w-video.videoWidth*scale)/2,oy=(h-video.videoHeight*scale)/2;
+    return{x:w-(p.x*video.videoWidth*scale+ox),y:p.y*video.videoHeight*scale+oy};
+  }
+  function blend(map,key){return map[key]||0}
+  function detect(t){
+    if(!tracking||!model||!cameraOn||video.readyState<2||mode!=='playing'||isPaused)return;
+    if(t-lastDetect<70||video.currentTime===lastVideoTime)return;
+    lastDetect=t;lastVideoTime=video.currentTime;
+    try{
+      const r=model.detectForVideo(video,t);
+      if(!r.faceLandmarks?.length){face.seen=false;faceMissingTime+=.08;if(faceMissingTime>.8)setStatus('הפנים מחוץ לפריים • כפתורי מגע זמינים');return;}
+      faceMissingTime=0;
+      const lm=r.faceLandmarks[0],cats=r.faceBlendshapes?.[0]?.categories||[];
+      const b={};for(const c of cats)b[c.categoryName]=c.score;
+      const top=screenPos(lm[13]),bottom=screenPos(lm[14]);
+      const mid={x:(top.x+bottom.x)/2,y:(top.y+bottom.y)/2};
+      const ex1=screenPos(lm[159]),ex2=screenPos(lm[386]);
+      face.x=face.seen?face.x*.55+mid.x*.45:mid.x;
+      face.y=face.seen?face.y*.55+mid.y*.45:mid.y;
+      face.eyes=[ex1,ex2];face.jaw=blend(b,'jawOpen');face.blink=(blend(b,'eyeBlinkLeft')+blend(b,'eyeBlinkRight'))/2;
+      face.pucker=Math.max(blend(b,'mouthPucker'),blend(b,'mouthFunnel'));
+      face.seen=true;
+      bars[0].style.width=`${Math.round(face.jaw*100)}%`;
+      bars[1].style.width=`${Math.round(face.blink*100)}%`;
+      bars[2].style.width=`${Math.round(face.pucker*100)}%`;
+      setStatus('פנים מזוהות • '+(face.jaw>.31?'הפה פתוח! 😮':face.blink>.55?'מצמוץ! ⚡':face.pucker>.52?'עשן מוכן 💨':'מוכן לפעולה'),true);
+      // Hysteresis prevents one long blink from firing repeatedly.
+      if(face.blink<.29)blinkArmed=true;
+      if(face.blink>.60&&blinkArmed){blinkArmed=false;laser();}
+      if(face.pucker<.27)smokeArmed=true;
+      if(face.pucker>.54&&smokeArmed){smokeArmed=false;smoke();}
+    }catch(e){console.warn('face detection issue',e);tracking=false;model=null;face.seen=false;meter.classList.remove('visible');setStatus('זיהוי הפנים נעצר • השתמש בכפתורים');showToast('עוברים לשליטת מגע');}
+  }
+  function pos(){return face.seen?{x:clamp(face.x,30,w-30),y:clamp(face.y,135,h-120)}:{x:w/2,y:h*.50}}
+  function isMouthOpen(){return manualMouth||(tracking&&face.seen&&face.jaw>.30)}
+  function spawn(){
+    const foe=Math.random()<.34;const subtype=foe?'foe':Math.random()<.08?'gold':'orb';
+    const angle=rand(0,Math.PI*2),r=Math.max(w,h)*.65+45;
+    let x=w/2+Math.cos(angle)*r,y=h*.48+Math.sin(angle)*r;
+    // Balls enter near-screen from accessible angles.
+    x=clamp(x,-35,w+35);y=clamp(y,105,h-130);
+    const s={x,y,vx:0,vy:0,type:subtype,r:foe?23:subtype==='gold'?19:15,spin:rand(0,6.28),life:0,speed:rand(58,83)+level*9,wave:rand(0,6)};
+    objects.push(s);
+  }
+  function spark(x,y,color,count=15,speed=155){
+    for(let i=0;i<count;i++){const a=rand(0,Math.PI*2),v=rand(speed*.18,speed);particles.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:rand(.30,.75),max:.75,color,r:rand(2,5),kind:'spark'});}
+  }
+  function addScore(points,x,y){score+=points;combo++;level=1+Math.floor(score/250);updateHud();particles.push({x,y,vy:-48,vx:rand(-10,10),life:.8,max:.8,color:'#fff4bf',text:'+'+points,kind:'text'});}
+  function hit(x,y){const t=now();if(t-lastHit<900)return;lastHit=t;hp--;combo=0;updateHud();sound(150,.32,'sawtooth',.065);vibrate(115);spark(x,y,'#ff5e94',20,210);showToast('אאוץ׳! ♥ -1');if(hp<=0)endGame();}
+  function laser(){if(mode!=='playing'||isPaused||now()-lastBlink<340)return;lastBlink=now();
+    let nearest=null,best=Infinity;const aim=face.seen?{x:face.x,y:face.y-95}:{x:w/2,y:h*.40};
+    for(const obj of objects)if(obj.type==='foe'){const d=dist(obj,aim);if(d<best){best=d;nearest=obj}}
+    const eyes=face.seen&&face.eyes.length?face.eyes:[{x:w/2-27,y:h*.43},{x:w/2+27,y:h*.43}];
+    const target=nearest?{x:nearest.x,y:nearest.y}:{x:aim.x,y:aim.y-180};
+    for(const eye of eyes)beams.push({x1:eye.x,y1:eye.y,x2:target.x,y2:target.y,life:.23,max:.23});
+    spark(target.x,target.y,nearest?'#fa79df':'#72fce6',nearest?18:8,120);
+    sound(740,.12,'sawtooth',.026);vibrate(20);
+    if(nearest){objects.splice(objects.indexOf(nearest),1);addScore(30,target.x,target.y);if(combo>0&&combo%5===0)showToast(`COMBO ×${combo}!`)}
+  }
+  function smoke(){if(mode!=='playing'||isPaused||now()-lastSmoke<1700)return;lastSmoke=now();
+    const center=pos();rings.push({x:center.x,y:center.y,r:15,maxR:Math.max(w*.55,165),life:.9,max:.9});
+    for(let i=0;i<48;i++){const a=rand(0,6.28),v=rand(28,155);particles.push({x:center.x,y:center.y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-25,life:rand(.45,1.3),max:1.3,color:i%3===0?'#b7a9ff':'#8bfce7',r:rand(7,21),kind:'smoke'});}
+    const destroyed=objects.filter(o=>dist(o,center)<Math.max(w*.55,165));
+    for(const obj of destroyed){objects.splice(objects.indexOf(obj),1);spark(obj.x,obj.y,'#b9fbf4',7,90);addScore(obj.type==='foe'?25:10,obj.x,obj.y)}
+    sound(260,.4,'triangle',.06);vibrate(35);showToast(destroyed.length?`ענן קסום! ${destroyed.length} פגיעות`:'ענן קסום! 💨');
+  }
+  function circle(x,y,r,color){ctx.fillStyle=color;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill()}
+  function drawDemoFace(t){if(cameraOn)return;
+    const p=pos();ctx.save();ctx.translate(p.x,p.y-32);const breathe=Math.sin(t/850)*3;
+    ctx.shadowColor='#9b67ed';ctx.shadowBlur=35;
+    ctx.fillStyle='#38255fd9';ctx.beginPath();ctx.ellipse(0,-5+breathe,88,112,0,0,6.283);ctx.fill();ctx.shadowBlur=0;
+    ctx.strokeStyle='#9772e7aa';ctx.lineWidth=3;ctx.stroke();
+    for(const x of [-32,32]){ctx.fillStyle='#faf4ff';ctx.beginPath();ctx.ellipse(x,-28+breathe,19,23,0,0,6.283);ctx.fill();circle(x,-28+breathe,8,'#271536');circle(x+2,-32+breathe,3,'#fff')}
+    ctx.fillStyle='#1d0d32';ctx.beginPath();ctx.ellipse(0,42+breathe,22,isMouthOpen()?27:8,0,0,6.283);ctx.fill();
+    ctx.fillStyle='#ff79bd';ctx.beginPath();ctx.ellipse(0,57+breathe,13,7,0,0,6.283);ctx.fill();
+    ctx.restore();
+  }
+  function drawOrb(obj,t){const{x,y,r}=obj;ctx.save();ctx.translate(x,y);ctx.rotate(obj.spin+t*.0006);
+    if(obj.type==='foe'){
+      ctx.shadowBlur=20;ctx.shadowColor='#ff4c9a';circle(0,0,r,'#ff547d');ctx.shadowBlur=0;
+      ctx.fillStyle='#942353';ctx.beginPath();ctx.moveTo(-r+4,-r+8);ctx.lineTo(-r-11,-r-15);ctx.lineTo(-1,-r+3);ctx.fill();ctx.beginPath();ctx.moveTo(r-4,-r+8);ctx.lineTo(r+11,-r-15);ctx.lineTo(1,-r+3);ctx.fill();
+      circle(-8,-2,5,'#fff8d6');circle(8,-2,5,'#fff8d6');circle(-7,-1,2.8,'#25142a');circle(9,-1,2.8,'#25142a');
+      ctx.strokeStyle='#44102b';ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-8,10);ctx.quadraticCurveTo(0,2,8,10);ctx.stroke();
+    }else {
+      ctx.shadowBlur=19;ctx.shadowColor=obj.type==='gold'?'#ffc65c':'#6ffce7';circle(0,0,r,obj.type==='gold'?'#ffd369':'#7afce0');ctx.shadowBlur=0;
+      circle(-r*.23,-r*.3,r*.28,'#ffffffbb');ctx.strokeStyle=obj.type==='gold'?'#fff7af':'#39bcd1';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,r*.73,-1.4,1.5);ctx.stroke();
+    }ctx.restore();
+  }
+  function drawBackground(t){if(cameraOn)return;
+    ctx.save();ctx.globalAlpha=.3;for(let i=0;i<26;i++){const x=(i*191.7+Math.sin(i*10+t*.00012)*25)%w,y=(i*139.3+t*(.011+i%4*.002))%h;circle(x,y,(i%3)+1,'#c1b6ff')}ctx.restore();
+  }
+  function drawScene(t){ctx.clearRect(0,0,w,h);if(mode==='intro')return;drawBackground(t);drawDemoFace(t);
+    const p=pos();
+    if(mode==='playing'&&isMouthOpen()){
+      ctx.strokeStyle='#82ffe2c9';ctx.lineWidth=3;ctx.shadowColor='#7affd3';ctx.shadowBlur=16;ctx.beginPath();ctx.arc(p.x,p.y,42+Math.sin(t*.01)*4,0,6.283);ctx.stroke();ctx.shadowBlur=0;
+    }
+    if(face.seen&&tracking){for(const e of face.eyes){ctx.strokeStyle='#eb85ff9e';ctx.lineWidth=1;ctx.beginPath();ctx.arc(e.x,e.y,13,0,6.283);ctx.stroke()}}
+    for(const o of objects)drawOrb(o,t);
+    for(const ring of rings){ctx.save();ctx.globalAlpha=ring.life/ring.max*.65;ctx.strokeStyle='#a4ffe5';ctx.shadowBlur=30;ctx.shadowColor='#b0ffe8';ctx.lineWidth=7;ctx.beginPath();ctx.arc(ring.x,ring.y,ring.r,0,6.283);ctx.stroke();ctx.restore()}
+    for(const beam of beams){ctx.save();ctx.globalAlpha=beam.life/beam.max;ctx.strokeStyle='#ff8ce5';ctx.lineWidth=10;ctx.shadowColor='#ff3fc7';ctx.shadowBlur=20;ctx.beginPath();ctx.moveTo(beam.x1,beam.y1);ctx.lineTo(beam.x2,beam.y2);ctx.stroke();ctx.strokeStyle='#fff5ff';ctx.lineWidth=2.5;ctx.shadowBlur=0;ctx.stroke();ctx.restore()}
+    for(const part of particles){ctx.save();ctx.globalAlpha=clamp(part.life/part.max,0,1);if(part.kind==='text'){ctx.textAlign='center';ctx.fillStyle=part.color;ctx.font='900 19px system-ui';ctx.shadowColor=part.color;ctx.shadowBlur=8;ctx.fillText(part.text,part.x,part.y)}else{ctx.shadowColor=part.color;ctx.shadowBlur=part.kind==='smoke'?12:6;circle(part.x,part.y,part.r*(part.kind==='smoke'?(1-part.life/part.max*.4):1),part.color)}ctx.restore()}
+    if(mode==='playing'&&hp>0&&t-lastHit<270){ctx.fillStyle='#ff447b35';ctx.fillRect(0,0,w,h)}
+  }
+  function step(dt,t){if(mode!=='playing'||isPaused)return;
+    gameTime+=dt;spawnTimer-=dt;
+    if(spawnTimer<=0){if(objects.length<16)spawn();spawnTimer=clamp(1.24-level*.08,.48,1.2)*rand(.8,1.18)}
+    const target=pos();
+    for(let i=objects.length-1;i>=0;i--){const obj=objects[i];obj.life+=dt;
+      const dx=target.x-obj.x,dy=target.y-obj.y,d=Math.hypot(dx,dy)||1;
+      const speed=obj.speed*(1+Math.sin(obj.life*3+obj.wave)*.09);
+      obj.x+=dx/d*speed*dt;obj.y+=dy/d*speed*dt;
+      obj.spin+=dt*1.5;
+      if(d<obj.r+30){objects.splice(i,1);
+        if(obj.type==='foe'){hit(obj.x,obj.y)}
+        else if(isMouthOpen()){const pts=obj.type==='gold'?50:10;spark(obj.x,obj.y,obj.type==='gold'?'#ffc766':'#78ffdd',15,130);addScore(pts,obj.x,obj.y);sound(obj.type==='gold'?920:560,.10,'sine',.04);if(combo>2&&combo%6===0)showToast(`COMBO ×${combo}`)}
+        else{ // If the player fails to open their mouth, the orb disappears; only enemies cause damage.
+          spark(obj.x,obj.y,'#c1a0fb',5,65);combo=0;
+        }
+      }
+    }
+    for(let i=particles.length-1;i>=0;i--){const p=particles[i];p.life-=dt;p.x+=(p.vx||0)*dt;p.y+=(p.vy||0)*dt;if(p.kind==='smoke'){p.vy-=dt*15;p.vx*=.985}if(p.life<=0)particles.splice(i,1)}
+    for(let i=rings.length-1;i>=0;i--){const r=rings[i];r.life-=dt;r.r+=(r.maxR-r.r)*Math.min(1,dt*6);if(r.life<=0)rings.splice(i,1)}
+    for(let i=beams.length-1;i>=0;i--){beams[i].life-=dt;if(beams[i].life<=0)beams.splice(i,1)}
+  }
+  function frame(t){const dt=Math.min((t-lastTs)/1000||.016,.048);lastTs=t;detect(t);step(dt,t);drawScene(t);requestAnimationFrame(frame)}
+  requestAnimationFrame(frame);
+
+  startCamera.addEventListener('click',cameraStart);
+  startDemo.addEventListener('click',()=>{tracking=false;meter.classList.remove('visible');reset()});
+  $('restartButton').addEventListener('click',()=>reset());
+  $('backButton').addEventListener('click',()=>{mode='intro';over.hidden=true;intro.hidden=false;startCamera.disabled=false;startCamera.textContent=cameraOn?'📷 הפעל זיהוי פנים מחדש':'📷 התחלה עם מצלמה';});
+  $('pauseButton').addEventListener('click',()=>{if(mode!=='playing')return;isPaused=!isPaused;$('pauseButton').textContent=isPaused?'▶️':'⏸';setStatus(isPaused?'המשחק מושהה':tracking?'המשחק ממשיך • זיהוי פנים':'המשחק ממשיך • מגע',tracking);});
+  $('soundButton').addEventListener('click',()=>{muted=!muted;$('soundButton').textContent=muted?'🔇':'🔊';});
+  function mouthDown(e){if(mode!=='playing')return;e.preventDefault();manualMouth=true;mouthButton.classList.add('pressed');mouthButton.setPointerCapture?.(e.pointerId)}
+  function mouthUp(e){manualMouth=false;mouthButton.classList.remove('pressed')}
+  mouthButton.addEventListener('pointerdown',mouthDown);mouthButton.addEventListener('pointerup',mouthUp);mouthButton.addEventListener('pointercancel',mouthUp);mouthButton.addEventListener('lostpointercapture',mouthUp);
+  laserButton.addEventListener('pointerdown',e=>{e.preventDefault();laser();laserButton.classList.add('pressed')});laserButton.addEventListener('pointerup',()=>laserButton.classList.remove('pressed'));laserButton.addEventListener('pointercancel',()=>laserButton.classList.remove('pressed'));
+  smokeButton.addEventListener('pointerdown',e=>{e.preventDefault();smoke();smokeButton.classList.add('pressed')});smokeButton.addEventListener('pointerup',()=>smokeButton.classList.remove('pressed'));smokeButton.addEventListener('pointercancel',()=>smokeButton.classList.remove('pressed'));
+  window.addEventListener('keydown',e=>{if(e.repeat||mode!=='playing')return;if(e.code==='Space'){e.preventDefault();manualMouth=true;mouthButton.classList.add('pressed')}if(e.code==='KeyL')laser();if(e.code==='KeyS')smoke();});
+  window.addEventListener('keyup',e=>{if(e.code==='Space'){manualMouth=false;mouthButton.classList.remove('pressed')}});
+  document.addEventListener('visibilitychange',()=>{if(document.hidden&&mode==='playing'){isPaused=true;$('pauseButton').textContent='▶️';}});
+  window.addEventListener('pagehide',()=>{stream?.getTracks().forEach(t=>t.stop());model?.close?.()});
+})();
+</script>
+</body>
+</html>
